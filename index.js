@@ -1,4 +1,4 @@
-hereconst { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, makeCacheableSignalKeyStore } = require("@whiskeysockets/baileys");
 const express = require('express');
 const pino = require('pino');
 const readline = require("readline");
@@ -14,7 +14,6 @@ app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
 
-// رقم هاتفك إذا أردت وضعه هنا أو عبر متغير البيئة (اختياري، أو سيطلبه منك في السجلات)
 const phoneNumber = process.env.PHONE_NUMBER || ""; 
 
 async function startBot() {
@@ -29,23 +28,25 @@ async function startBot() {
         browser: ["Ubuntu", "Chrome", "20.0.04"]
     });
 
-    // إذا لم يكن متصلاً، قم بطلب الرمز برقم الهاتف تلقائياً
     if (!sock.authState.creds.registered) {
         let num = phoneNumber;
         if (!num) {
-            // هنا يطلب منك إدخال الرقم في السجلات إذا لم تقم بتحديده
             const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
             const question = (text) => new Promise((resolve) => rl.question(text, resolve));
-            num = await question("الرجاء إدخال رقم هاتف الواتساب مع رمز الدولة (مثال 9665xxxxxxxx): ");
+            num = await question("رقم الواتساب: ");
             rl.close();
         }
         
         setTimeout(async () => {
-            let code = await sock.requestPairingCode(num.trim());
-            console.log(`\n========================================`);
-            console.log(`🔑 كود الربط الخاص بك هو: ${code}`);
-            console.log(`========================================\n`);
-        }, 3000);
+            try {
+                let code = await sock.requestPairingCode(num.trim());
+                console.log(`\n========================================`);
+                console.log(`🔑 كود الربط الخاص بك هو: ${code}`);
+                console.log(`========================================\n`);
+            } catch (err) {
+                console.log("خطأ في طلب الكود:", err);
+            }
+        }, 4000);
     }
 
     sock.ev.on('creds.update', saveCreds);
@@ -54,7 +55,6 @@ async function startBot() {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
             const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('Connection closed. Reconnecting...', shouldReconnect);
             if (shouldReconnect) {
                 startBot();
             }
