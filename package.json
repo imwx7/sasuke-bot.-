@@ -1,14 +1,6 @@
-{
-  "name": "sasuke-bot",
-  "version": "1.0.0",
-  "description": "Sasuke WhatsApp Bot",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.0",
-    "express": "^4.19.2",
-    "pino": "^8.19.0"
-  }
+"dependencies": {
+  "@whiskeysockets/baileys": "latest",
+  "pino": "latest",
+  "express": "latest",
+  "wa-sticker-formatter": "latest"
 }
