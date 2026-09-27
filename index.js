@@ -5,8 +5,11 @@ const {
     fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
-const readline = require('readline');
+const express = require('express');
 const { Sticker, StickerTypes } = require('wa-sticker-formatter');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
 
 const OWNER_NUMBER = '201274934730';
 const OWNER_JID = `${OWNER_NUMBER}@s.whatsapp.net`;
@@ -92,8 +95,6 @@ const messages = [
 
 let isEnabled = true;
 let bombGame = {};
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-const question = (text) => new Promise((resolve) => rl.question(text, resolve));
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('./session');
@@ -107,16 +108,21 @@ async function startBot() {
     });
 
     if (!client.authState.creds.registered) {
-        const phoneNumber = await question('📱 أدخل رقم هاتف البوت مع رمز الدولة (مثال: 201274934730): ');
-        const code = await client.requestPairingCode(phoneNumber.trim().replace(/[^0-9]/g,''));
-        console.log(`\n🔑 كود الاقتران: \x1b[32m${code}\x1b[0m\n`);
+        const phoneNumber = process.env.BOT_NUMBER;
+        if (phoneNumber) {
+            setTimeout(async () => {
+                let code = await client.requestPairingCode(phoneNumber.trim().replace(/[^0-9]/g,''));
+                code = code?.match(/.{1,4}/g)?.join("-") || code;
+                console.log(`\n🔑 كود الاقتران الخاص بك هو: \x1b[32m${code}\x1b[0m\n`);
+            }, 3000);
+        }
     }
 
     client.ev.on('creds.update', saveCreds);
     client.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error)?.output?.statusCode!== DisconnectReason.loggedOut;
+            const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) startBot();
         } else if (connection === 'open') {
             console.log('👑 بوت ساسكي (القائد اسلام) جاهز 🔥');
@@ -157,7 +163,7 @@ async function startBot() {
         try {
             const groupMetadata = await client.groupMetadata(from);
             const participant = groupMetadata.participants.find(p => p.id === sender);
-            isAdmin = participant? (participant.admin!== null) : false;
+            isAdmin = participant ? (participant.admin !== null) : false;
         } catch (e) {}
 
         const getTargetUser = () => {
@@ -167,7 +173,7 @@ async function startBot() {
             return null;
         };
 
-        const isSticker =!!msg.message.stickerMessage;
+        const isSticker = !!msg.message.stickerMessage;
         const containsBadWord = BAD_WORDS.some(word => lowerText.includes(word));
         if (containsBadWord || isSticker) {
             if (!isOwner) {
@@ -184,8 +190,8 @@ async function startBot() {
 
         if (['تلقائي', '.تلقائي', 'ايقاف', '.ايقاف'].includes(text)) {
             if (!isOwner) return await client.sendMessage(from, { text: '👑 الأمر ده للقائد إسلام بس' }, { quoted: msg });
-            isEnabled =!isEnabled;
-            return await client.sendMessage(from, { text: isEnabled? "✅ *تم تشغيل الإرسال التلقائي يا قائد 👑*" : "⛔ *تم إيقاف الإرسال التلقائي*" }, { quoted: msg });
+            isEnabled = !isEnabled;
+            return await client.sendMessage(from, { text: isEnabled ? "✅ *تم تشغيل الإرسال التلقائي يا قائد 👑*" : "⛔ *تم إيقاف الإرسال التلقائي*" }, { quoted: msg });
         }
 
         if (text.startsWith('.رفع')) {
@@ -209,7 +215,7 @@ async function startBot() {
         }
 
         if (text.startsWith('.قبول') || text.startsWith('قبول')) {
-            if (!isAdmin &&!isOwner) return await client.sendMessage(from, { text: '⚠️ هذا الأمر للمشرفين والقائد فقط!' }, { quoted: msg });
+            if (!isAdmin && !isOwner) return await client.sendMessage(from, { text: '⚠️ هذا الأمر للمشرفين والقائد فقط!' }, { quoted: msg });
             const args = text.split(' ').slice(1);
             const param = args.join('').trim();
             try {
@@ -230,14 +236,14 @@ async function startBot() {
         }
 
         if (['.ساسكي', 'ساسكي', '.قايمة', 'قايمة'].includes(lowerText)) {
-            const selectedMenu = (isAdmin || isOwner)? MENU_ADMIN : MENU_USER;
+            const selectedMenu = (isAdmin || isOwner) ? MENU_ADMIN : MENU_USER;
             return await client.sendMessage(from, { image: { url: MENU_IMAGE_URL }, caption: selectedMenu }, { quoted: msg });
         }
 
         if (text === '.العاب') return await client.sendMessage(from, { text: MENU_AL3AB }, { quoted: msg });
         if (text === '.ادوات') return await client.sendMessage(from, { text: MENU_ADWAT }, { quoted: msg });
         if (text === '.ادارة') {
-            if (!isAdmin &&!isOwner) return await client.sendMessage(from, { text: '⚠️ قائمة الإدارة للمشرفين فقط!' }, { quoted: msg });
+            if (!isAdmin && !isOwner) return await client.sendMessage(from, { text: '⚠️ قائمة الإدارة للمشرفين فقط!' }, { quoted: msg });
             return await client.sendMessage(from, { text: MENU_EDARA }, { quoted: msg });
         }
         if (text === '.قوانين') return await client.sendMessage(from, { text: MENU_QAWANEEN }, { quoted: msg });
@@ -251,7 +257,7 @@ async function startBot() {
             const target = getTargetUser();
             if (!target) return await client.sendMessage(from, { text: '⚠️ رد على رسالة الشخص أو منشن له!' }, { quoted: msg });
             try {
-                await client.sendMessage(from, { text: `👋 @${senderNum} يصفع @${target.split('@')[0]}!`, mentions: [sender][target] }, { quoted: msg });
+                await client.sendMessage(from, { text: `👋 @${senderNum} يصفع @${target.split('@')[0]}!`, mentions: [sender, target] }, { quoted: msg });
                 const sticker = new Sticker(SLAP_STICKER_URL, { pack: 'بوت ساسكي 👑', author: 'صفع 💥', type: StickerTypes.FULL });
                 const buffer = await sticker.toBuffer();
                 await client.sendMessage(from, { sticker: buffer });
@@ -261,7 +267,7 @@ async function startBot() {
 
         if (text === '.قنبلة') {
             bombGame[from] = true;
-            return await client.sendMessage(from, { text: `💣 القنبلة اتزرعت @${senderNum} معاك 10 ثواني.فك`, mentions: [sender] }, { quoted: msg });
+            return await client.sendMessage(from, { text: `💣 القنبلة اتزرعت @${senderNum} معاك 10 ثواني .فك`, mentions: [sender] }, { quoted: msg });
         }
         if (text === '.فك' && bombGame[from]) {
             bombGame[from] = false;
@@ -270,7 +276,7 @@ async function startBot() {
         if (text === '.نرد') return await client.sendMessage(from, { text: `🎲 @${senderNum} طلعلك *${Math.floor(Math.random() * 6) + 1}*`, mentions: [sender] }, { quoted: msg });
         if (text === '.سلم') return await client.sendMessage(from, { text: `🪜 @${senderNum} طلعلك *${Math.floor(Math.random() * 6) + 1}*`, mentions: [sender] }, { quoted: msg });
         if (text === '.روليت') {
-            let r = Math.random() > 0.5? 'طاخ 💥 مت 😂💀' : 'تك 🔫 عشت';
+            let r = Math.random() > 0.5 ? 'طاخ 💥 مت 😂💀' : 'تك 🔫 عشت';
             return await client.sendMessage(from, { text: `🔫 روليت روسي @${senderNum} -> ${r}`, mentions: [sender] }, { quoted: msg });
         }
         if (text === '.حرامي' || text === '.مين الحرامي') {
@@ -281,4 +287,8 @@ async function startBot() {
         if (text === '.تفجير') return await client.sendMessage(from, { text: `💥 بووووم @${senderNum} فجر الجروب 😂💣`, mentions: [sender] }, { quoted: msg });
     });
 }
+
+app.get('/', (req, res) => res.send('Bot is running!'));
+app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
+
 startBot();
