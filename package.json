@@ -1,6 +1,15 @@
-"dependencies": {
-  "@whiskeysockets/baileys": "latest",
-  "pino": "latest",
-  "express": "latest",
-  "wa-sticker-formatter": "latest"
+{
+  "name": "sasuke-bot",
+  "version": "1.0.0",
+  "description": "Sasuke WhatsApp Bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "latest",
+    "pino": "latest",
+    "express": "latest",
+    "wa-sticker-formatter": "latest"
+  }
 }
